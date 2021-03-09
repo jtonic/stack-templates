@@ -11,11 +11,19 @@
 ---
 Run the following commands:
 1. Create the project from jtonic simple template
-  `stack new haskell-simple jtonic/simple`
-  `cd haskell-simple`
+
+    `stack new haskell-simple jtonic/simple`
+
+    `cd haskell-simple`
+
 2. Build the application
-  `stack build`
+
+    `stack build`
+
 3. Run the application
-  `stack exec -- haskell-simple`
+
+    `stack exec -- haskell-simple`
+
 4. Run tests
-  `stack test`
+
+    `stack test`
