@@ -13,25 +13,33 @@ extra-source-files:
 - README.md
 
 dependencies:
-  - base >= 4.7 && < 5
+- base >= 4.7 && < 5
+- string-interpolate
 
+# The library contains all of our application code.
+# The executable defined below is just a thin wrapper.
+library:
+  source-dirs: lib
+
+# Runnable executable for our application
 executables:
   {{name}}:
-    source-dirs: exec
+    source-dirs: app
     main: Main.hs
     dependencies:
-    - base
+    - {{name}}
     ghc-options:
     - -rtsopts
     - -threaded
     - -with-rtsopts=-N
 
+# Test suite
 tests:
   {{name}}-test:
     source-dirs: test
     main: Main.hs
     dependencies:
-    - base
+    - {{name}}
     - tasty
     - tasty-hspec
     ghc-options:
@@ -43,12 +51,24 @@ tests:
 import Distribution.Simple
 main = defaultMain
 
-{-# START_FILE exec/Main.hs #-}
+{-# START_FILE app/Main.hs #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Main where
+
+import Lib
+import Data.String.Interpolate (i)
 
 main :: IO ()
 main = do
-  putStrLn "hello world"
+  let a = 1
+  let b = 2
+  putStrLn [i| Sum of #{a} and #{b} is #{sum' a b}|]
+
+{-# START_FILE lib/Lib.hs #-}
+module Lib where
+
+sum' :: Int -> Int -> Int
+sum' a b = a + b
 
 {-# START_FILE test/Main.hs #-}
 -- Tasty makes it easy to test your code. It is a test framework that can
@@ -58,6 +78,7 @@ import qualified Test.Tasty
 -- Hspec is one of the providers for Tasty. It provides a nice syntax for
 -- writing tests. Its website has more info: <https://hspec.github.io>.
 import Test.Tasty.Hspec
+import Lib
 
 main :: IO ()
 main = do
@@ -66,17 +87,35 @@ main = do
 
 spec :: Spec
 spec = parallel $ do
-    it "is trivially true" $ do
-        True `shouldBe` True
+    it "Sum of 1 and 1 is 2" $ do
+        sum' 1 1 `shouldBe` 2
 
 {-# START_FILE README.md #-}
 # {{name}}
 
 {-# START_FILE .gitignore #-}
-# Stack uses this directory as scratch space.
+dist*
+static/tmp/
+static/combined/
+config/client_session_key.aes
+*.hi
+*.o
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+.hsenv*
+cabal-dev/
 .stack-work/
-# Stack generates the Cabal file from `package.yaml` through hpack.
-*.cabal
+.stack-work-devel/
+yesod-devel/
+.cabal-sandbox
+cabal.sandbox.config
+.DS_Store
+*.swp
+*.keter
+*~
+\#*
+{{name}}.cabal
 # Vs code
 .history/
 
@@ -130,6 +169,8 @@ The change log is available through the [releases on GitHub][].
 # GHC supported by VS code Haskell extension: https://github.com/haskell/vscode-haskell#supported-ghc-versions
 # LTS resolvers: https://www.stackage.org/
 resolver: {{lts-version}}{{^lts-version}}lts-17.5{{/lts-version}}
+packages:
+- .
 
 {-# START_FILE LICENSE #-}
 Copyright {{author-name}}{{^author-name}}Author name here{{/author-name}} (c) {{year}}{{^year}}2019{{/year}}
