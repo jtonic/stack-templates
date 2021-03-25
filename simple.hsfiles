@@ -59,7 +59,7 @@ dependencies:
 # The library contains all of our application code.
 # The executable defined below is just a thin wrapper.
 library:
-  source-dirs: lib
+  source-dirs: src
 
 # Runnable executable for our application
 executables:
@@ -104,13 +104,13 @@ main = do
   let b = 2
   putStrLn [i| Sum of #{a} and #{b} is #{sum' a b}|]
 
-{-# START_FILE lib/Lib.hs #-}
+{-# START_FILE src/Lib.hs #-}
 module Lib where
 
 sum' :: Int -> Int -> Int
 sum' a b = a + b
 
-{-# START_FILE lib/Prelude.hs #-}
+{-# START_FILE src/Prelude.hs #-}
 module Prelude (
     module Relude
 ) where
