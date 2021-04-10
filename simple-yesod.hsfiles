@@ -15,6 +15,21 @@ extra-source-files:
 dependencies:
 - base >= 4.7 && < 5
 - string-interpolate
+- text >= 1.2 # text dependency
+- text-show >= 3.8
+- HsYAML >= 0.2
+- lens >= 4.18.1
+- extra >= 1.7.8
+- bytestring
+- random
+- containers
+- warp
+- wai
+- yesod
+- http-types
+- aeson
+- conferer
+- conferer-warp
 
 # The library contains all of our application code.
 # The executable defined below is just a thin wrapper.
@@ -51,24 +66,138 @@ tests:
 import Distribution.Simple
 main = defaultMain
 
-{-# START_FILE app/Main.hs #-}
-{-# LANGUAGE QuasiQuotes #-}
-module Main where
-
-import Lib
-import Data.String.Interpolate (i)
-
-main :: IO ()
-main = do
-  let a = 1
-  let b = 2
-  putStrLn [i| Sum of #{a} and #{b} is #{sum' a b}|]
-
 {-# START_FILE src/Lib.hs #-}
 module Lib where
 
 sum' :: Int -> Int -> Int
 sum' a b = a + b
+
+{-# START_FILE src/Web/Data.hs #-}
+module Web.Data (
+  Person (..),
+  Organization (..)
+) where
+
+data Person = Person
+  { name :: String,
+    age :: Int
+  }
+  deriving (Show)
+
+data Organization = Organization
+  {
+    organizationName :: String
+    , organizationAddress :: String
+  }
+  deriving (Show)
+
+{-# START_FILE src/Web/Serde.hs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
+module Web.Serde where
+
+import Web.Data (Person (..), Organization (..))
+import Data.Aeson ( ToJSON(toJSON), object, KeyValue((.=)) )
+
+instance ToJSON Person where
+  toJSON Person {..} =
+    object
+      [ "name" .= name,
+        "age" .= age
+      ]
+
+instance ToJSON Organization where
+  toJSON Organization {..} =
+    object
+    [
+      "name" .= organizationName
+      , "address" .= organizationAddress
+    ]
+
+{-# START_FILE src/Web/Control.hs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+module Web.Control where
+
+import Data.Aeson
+  ( encode,
+  )
+import qualified Data.ByteString.Lazy.Char8 as L
+import Web.Data (Person (..), Organization (..))
+import Web.Serde ()
+import Yesod
+import Data.Text (Text)
+import Data.Maybe ( fromMaybe )
+
+run :: IO ()
+run = do
+  let json = encode $ Person "Antonel" 30
+  L.putStrLn json
+
+data App = App
+
+mkYesod "App" [parseRoutes|
+/                       HomeR               GET
+/greeting               GreetingR           GET
+/echo/#Text             EchoR               GET
+/person/info            PersonInfoR         GET
+/organization/info      OrganizationInfoR   GET
+|]
+
+instance Yesod App
+
+mimeType :: ContentType
+mimeType = "text/haskell-show"
+
+getHomeR :: Handler TypedContent
+getHomeR =
+  return $ TypedContent mimeType $ toContent $ show person
+  where
+    person = Person "Antonel" 50
+
+getGreetingR :: Handler Html
+getGreetingR = defaultLayout [whamlet|<h1>Hello from #{name person}|]
+  where
+    person = Person "Antonel" 50
+
+getEchoR :: Text -> Handler Html
+getEchoR name = defaultLayout [whamlet|<h1>Hello #{name}!|]
+
+getPersonInfoR :: Handler Html
+getPersonInfoR = do
+  nameMaybe <- lookupGetParam "name"
+  let name = fromMaybe "no name" nameMaybe
+  defaultLayout [whamlet|<h1>Hello #{name}!|]
+
+getOrganizationInfoR :: Handler Value
+getOrganizationInfoR = returnJson org
+
+org :: Organization
+org = Organization { organizationName = "ING", organizationAddress = "Romania"}
+
+{-# START_FILE src/Web/Runner.hs #-}
+module Web.Runner where
+
+import Yesod
+import Web.Control
+
+run :: IO ()
+run = warp {{warp-port}}{{^warp-port}}3000{{/warp-port}} App
+
+{-# START_FILE app/Main.hs #-}
+module Main where
+
+import Web.Runner
+
+main :: IO ()
+main = run
 
 {-# START_FILE test/Main.hs #-}
 -- Tasty makes it easy to test your code. It is a test framework that can
@@ -90,8 +219,42 @@ spec = parallel $ do
     it "Sum of 1 and 1 is 2" $ do
         sum' 1 1 `shouldBe` 2
 
+{-# START_FILE check/http/hello.http #-}
+# REST commands
+
+### Home
+GET http://localhost:3000
+Accept: text/plain
+
+### Greeting
+GET http://localhost:3000/greeting
+Accept: text/html
+
+### Echo
+GET http://localhost:3000/echo/Tony
+Accept: text/html
+
+### Person info
+GET http://localhost:3000/person/info?name=Antonel-Ernest.Pazargic
+Accept: text/html
+
+### Organization info
+GET http://localhost:3000/organization/info
+Accept: application/json
+
+### Not found
+GET http://localhost:3000/notfound
+Accept: text/plain
+
 {-# START_FILE README.md #-}
 # {{name}}
+
+## How to run and test the application
+
+  - Build and run the web application (REST service)
+  `stack build --fast && stack exec -- {{name}}`
+
+  - Run HTTP commands defined in check/http/hello.http files
 
 {-# START_FILE .gitignore #-}
 dist*
@@ -171,6 +334,8 @@ The change log is available through the [releases on GitHub][].
 resolver: {{lts-version}}{{^lts-version}}lts-17.5{{/lts-version}}
 packages:
 - .
+extra-deps:
+  - bytestring-0.10.12.0
 
 {-# START_FILE LICENSE #-}
 Copyright {{author-name}}{{^author-name}}Author name here{{/author-name}} (c) {{year}}{{^year}}2019{{/year}}
@@ -259,6 +424,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 {-# START_FILE doc/haskell_common_commands.md #-}
 
+# Haskell common commands
+
+## Stack commands
+
+  - `stack build --fast && stack exec -- {{name}}`
+  - `stack test`
+  - `stack haddock`
 
 {-# START_FILE doc/road_to_production.md #-}
 # Haskell road to PRODUCTION
@@ -335,5 +507,3 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - [ ] tracing
 
 ## Data Structures
-
-

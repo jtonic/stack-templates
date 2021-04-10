@@ -2,6 +2,8 @@
 
 ### Templates list
 - [simple](./simple.hsfiles)
+- [relude](./relude.hsfiles)
+- [simple-yesod](./simple-yesod.hsfiles)
 
 ### Requirements
 
