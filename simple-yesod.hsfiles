@@ -14,12 +14,12 @@ extra-source-files:
 
 dependencies:
 - base >= 4.7 && < 5
+- text
+- text-show
 - string-interpolate
-- text >= 1.2 # text dependency
-- text-show >= 3.8
-- HsYAML >= 0.2
-- lens >= 4.18.1
-- extra >= 1.7.8
+- HsYAML
+- lens
+- extra
 - bytestring
 - random
 - containers
@@ -254,7 +254,8 @@ Accept: text/plain
   - Build and run the web application (REST service)
   `stack build --fast && stack exec -- {{name}}`
 
-  - Run HTTP commands defined in check/http/hello.http files
+  - Run tests
+  `stack test`
 
 {-# START_FILE .gitignore #-}
 dist*
@@ -399,6 +400,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 | shortcut    | Description     | Notes |
 | ----------- | --------------- | ----- |
+| cmd k cmd i | show hover      |       |
 | cmd shift k | delete line     |       |
 | alt shift F | Format document |       |
 |             |                 |       |
@@ -431,6 +433,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   - `stack build --fast && stack exec -- {{name}}`
   - `stack test`
   - `stack haddock`
+  - debug and get documentation with file watch
+    `stack build --fast --haddock-deps --file-watch`
+
+## Formatters config
+
+My favorite formatter is `Stylish Haskell`.
+See how to configure Haskell formatters https://mmhaskell.com/blog/2018/8/6/keeping-it-clean-haskell-code-formatters
+
+- Install with stylish-haskell
+
+  `stack install stylish-haskell`
+
+- Make the stylish-haskell the default formatter in your editor of choice (mine is vs code)
+
+- generate the default format configuration
+
+  `stylish-haskell --defaults > .stylish-haskell.yaml`
 
 {-# START_FILE doc/road_to_production.md #-}
 # Haskell road to PRODUCTION
