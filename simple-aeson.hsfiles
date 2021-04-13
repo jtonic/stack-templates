@@ -1,0 +1,527 @@
+{-# START_FILE package.yaml #-}
+name:                {{name}}
+version:             {{version}}{{^version}}0.1.0.0{{/version}}
+#synopsis:
+#description:
+homepage:            https://github.com/{{github-username}}{{^github-username}}githubuser{{/github-username}}/{{name}}#readme
+license:             BSD3
+author:              {{author-name}}{{^author-name}}Author name here{{/author-name}}
+maintainer:          {{author-email}}{{^author-email}}example@example.com{{/author-email}}
+copyright:           {{copyright}}{{^copyright}}{{year}}{{^year}}2019{{/year}} {{author-name}}{{^author-name}}Author name here{{/author-name}}{{/copyright}}
+category:            {{category}}{{^category}}Web{{/category}}
+extra-source-files:
+- README.md
+
+default-extensions:
+- OverloadedStrings
+
+dependencies:
+- base >= 4.7 && < 5
+- text
+- string-interpolate
+- bytestring
+- aeson
+
+# The library contains all of our application code.
+# The executable defined below is just a thin wrapper.
+library:
+  source-dirs: src
+
+# Runnable executable for our application
+executables:
+  {{name}}:
+    source-dirs: app
+    main: Main.hs
+    dependencies:
+    - {{name}}
+    ghc-options:
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
+
+# Test suite
+tests:
+  {{name}}-test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+    - {{name}}
+    - tasty
+    - tasty-hspec
+    ghc-options:
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
+
+{-# START_FILE Setup.hs #-}
+import Distribution.Simple
+main = defaultMain
+
+{-# START_FILE src/Web/Data/Library.hs #-}
+{-# LANGUAGE DeriveGeneric #-}
+
+module Web.Data.Library where
+
+import           Data.Text    (Text)
+import           GHC.Generics (Generic)
+
+newtype BookType = BookType {
+  typeName :: Text
+} deriving (Show, Generic)
+
+data Book = Book
+  {
+    bookId   :: Int
+    , title  :: Text
+    , author :: Text
+    , year   :: Int
+    , bookType :: BookType
+  }
+  deriving (Show)
+
+
+data Address = Address
+  {
+    streetName :: Text
+    , streetNo :: Int
+  } deriving (Show, Generic)
+
+data Author = Author
+  {
+    authorId        :: Int
+    , authorName    :: Text
+    , authorAddress :: Text
+  } deriving (Show)
+
+{-# START_FILE src/Web/Serde/Library.hs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+
+module Web.Serde.Library where
+
+import           Data.Aeson       (FromJSON (..), KeyValue ((.=)), ToJSON,
+                                   object)
+import           Data.Aeson.Types (FromJSON (parseJSON), ToJSON (..),
+                                   Value (Object), (.:))
+import           Web.Data.Library (Author (..), Book (..), BookType (..))
+
+instance  FromJSON BookType
+
+instance  ToJSON BookType
+
+instance FromJSON Book where
+    parseJSON (Object v) = Book
+            <$> v .: "id"
+            <*> v .: "title"
+            <*> v .: "author"
+            <*> v .: "year"
+            <*> v .: "type"
+
+instance ToJSON Book where
+    toJSON Book {..} = object [
+            "id" .= bookId
+            , "title" .= title
+            , "author" .= author
+            , "year" .= year
+            , "type" .= bookType
+        ]
+
+instance  FromJSON Author where
+    parseJSON  ( Object  v) =  Author
+        <$> v .: "id"
+        <*> v .: "name"
+        <*> v .: "address"
+
+instance ToJSON Author where
+    toJSON Author {..} = object
+        [
+            "id" .= authorId
+            , "name" .= authorName
+            , "address" .= authorAddress
+        ]
+
+{-# START_FILE src/Web/Runners.hs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
+
+module Web.Runners (
+    runBookToJson,
+    runBookFromJson
+) where
+
+import           Data.Aeson                    (eitherDecode, encode)
+import qualified Data.ByteString.Char8         as C
+import qualified Data.ByteString.Lazy.Char8    as LC
+import           Data.ByteString.Lazy.Internal (ByteString)
+import           Data.String.Interpolate       (i)
+import           Data.Text                     (Text)
+import           Web.Data.Library              (Author (..), Book (..),
+                                                BookType (..))
+import           Web.Serde.Library             ()
+
+
+runBookToJson :: IO ()
+runBookToJson = do
+    bookToJson Book {bookId = 1, title = "Gestapo", author = "Sven Hassel", year = 1964, bookType = BookType {typeName="History"}}
+    authorToJson Author {authorId = 1, authorName = "Sven Hassel", authorAddress = "Copenhagen"}
+
+bookToJson :: Book -> IO ()
+bookToJson book = LC.putStrLn $ encode book
+
+authorToJson :: Author -> IO ()
+authorToJson author = LC.putStrLn $ encode author
+
+runBookFromJson :: IO ()
+runBookFromJson = do
+    let bookJson :: ByteString
+        bookJson = [i|
+{
+    "id":1,
+    "year":1964,
+    "author":"Sven Hassel",
+    "title":"Gestapo",
+    "type": {
+        "typeName": "History"
+    }
+}|]
+    bookFromJson bookJson
+    let authorJson :: ByteString
+        authorJson = [i|
+{
+    "id":1,
+    "name":"Sven Hassel",
+    "address":"Copenhagen"
+}|]
+    authorFromJson authorJson
+
+authorFromJson :: ByteString -> IO ()
+authorFromJson json = do
+    let
+        eAuthor :: Either String Author
+        eAuthor = eitherDecode json
+    case eAuthor of
+        Left err     -> print $ "An error has occurred: " ++ err
+        Right author -> print author
+
+bookFromJson :: ByteString -> IO ()
+bookFromJson json = do
+    let eBook :: Either String Book
+        eBook = eitherDecode json
+    case eBook of
+        Left err   -> print $ "An error has occurred" ++ err
+        Right book -> print book
+
+{-# START_FILE app/Main.hs #-}
+module Main where
+import           Web.Runners (runBookFromJson, runBookToJson)
+
+main :: IO ()
+main = do
+  runBookToJson
+  runBookFromJson
+
+{-# START_FILE src/Lib.hs #-}
+module Lib where
+
+sum' :: Int -> Int -> Int
+sum' a b = a + b
+
+{-# START_FILE test/Main.hs #-}
+-- Tasty makes it easy to test your code. It is a test framework that can
+-- combine many different types of tests into one suite. See its website for
+-- help: <http://documentup.com/feuerbach/tasty>.
+import qualified Test.Tasty
+-- Hspec is one of the providers for Tasty. It provides a nice syntax for
+-- writing tests. Its website has more info: <https://hspec.github.io>.
+import Test.Tasty.Hspec
+import Lib
+
+main :: IO ()
+main = do
+    test <- testSpec "{{name}}" spec
+    Test.Tasty.defaultMain test
+
+spec :: Spec
+spec = parallel $ do
+    it "Sum of 1 and 1 is 2" $ do
+        sum' 1 1 `shouldBe` 2
+
+{-# START_FILE README.md #-}
+# {{name}}
+
+## How to run and test the application
+
+  - Build and run the JSON (aeson) application
+  `stack build --fast && stack exec -- {{name}}`
+
+  - Run tests
+  `stack test`
+
+{-# START_FILE .gitignore #-}
+dist*
+static/tmp/
+static/combined/
+config/client_session_key.aes
+*.hi
+*.o
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+.hsenv*
+cabal-dev/
+.stack-work/
+.stack-work-devel/
+yesod-devel/
+.cabal-sandbox
+cabal.sandbox.config
+.DS_Store
+*.swp
+*.keter
+*~
+\#*
+{{name}}.cabal
+# Vs code
+.history/
+
+{-# START_FILE CHANGELOG.md #-}
+# Change log
+
+{{name}} uses [Semantic Versioning][].
+The change log is available through the [releases on GitHub][].
+
+[Semantic Versioning]: http://semver.org/spec/v2.0.0.html
+[releases on GitHub]: https://github.com/{{github-username}}{{^github-username}}githubuser{{/github-username}}/{{name}}/releases
+
+{-# START_FILE .ghci #-}
+:set prompt "\ESC[95m\STXλ. \ESC[m\STX"
+:set prompt-cont "\ESC[1;32mλ| \ESC[m"
+
+-- ============================================
+-- warns and sanity checking
+-- ============================================
+-- :set -Wunrecognised-pragmas
+-- :set -Wall
+:set -XOverloadedStrings
+-- :set -XScopedTypeVariables
+-- :set -Wempty-enumerations
+-- :set -Wincomplete-patterns
+
+-- :set -v
+
+-- :set -XGADTs
+-- :set -XLambdaCase
+-- :set -XNegativeLiterals
+-- :set -XTypeOperators
+-- :set -XTupleSections
+-- :set -XFlexibleContexts
+-- :set -XTypeApplications
+
+-- :set -package QuickCheck
+
+-- Pretty printing of it
+-- :set -package ghci-pretty
+-- import IPPrint.Colored
+-- :set -interactive-print=IPPrint.Colored.cpprint
+
+-- ============================================
+-- MUST BE AT THE END: And unset some warns
+-- ============================================
+-- :set -Wno-missing-signatures
+-- :set -Wno-type-defaults
+
+{-# START_FILE stack.yaml #-}
+# GHC supported by VS code Haskell extension: https://github.com/haskell/vscode-haskell#supported-ghc-versions
+# LTS resolvers: https://www.stackage.org/
+resolver: {{lts-version}}{{^lts-version}}lts-17.5{{/lts-version}}
+packages:
+- .
+
+{-# START_FILE LICENSE #-}
+Copyright {{author-name}}{{^author-name}}Author name here{{/author-name}} (c) {{year}}{{^year}}2019{{/year}}
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of {{author-name}}{{^author-name}}Author name here{{/author-name}} nor the names of other
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+{-# START_FILE doc/vs_code_shortcuts.md #-}
+# VS code shortcuts
+
+## General
+
+| shortcut     | Description                                    | Notes |
+| ------------ | ---------------------------------------------- | ----- |
+| ctrl shift P | Show all commands                              |       |
+| ctrl P       | Search files, search in file by symbol or line |       |
+| ctrl -       | Back                                           |       |
+| cmd I        | Trigger suggest                                |       |
+| cmd shift O  | Go to symbol in the edit                       |       |
+
+## Workspace
+
+| shortcut    | Description                   | Notes |
+| ----------- | ----------------------------- | ----- |
+| ctrl alt w  | quick switch window           |       |
+| cmd T       | Go to symbol in the workspace |       |
+| ctrl R      | Open recent                   |       |
+| cmd shift N | New window                    |       |
+| cmd shift W | Close window                  |       |
+| cmd K cmd W | close all editors             |       |
+|             |                               |       |
+|             |                               |       |
+
+## Editor basics
+
+| shortcut    | Description     | Notes |
+| ----------- | --------------- | ----- |
+| cmd shift k | delete line     |       |
+| alt shift F | Format document |       |
+|             |                 |       |
+
+## Editor IDE
+
+| shortcut     | Description                           | Notes |
+| ------------ | ------------------------------------- | ----- |
+| cmd d        | Find next occurrence of the selection |       |
+| cmd .        | Quick fix                             |       |
+| alt F8       | Next problem                          |       |
+| cmd shift o  | Go to symbol                          |       |
+| ctrl shift r | Refactoring                           |       |
+| cmd I        | Trigger suggest                       |       |
+|              |                                       |       |
+
+## Run debug
+
+| shortcut | Description   | Notes |
+| -------- | ------------- | ----- |
+| F8       | Run tests     |       |
+| F6       | Run a task... |       |
+
+{-# START_FILE doc/haskell_common_commands.md #-}
+
+# Haskell common commands
+
+## Stack commands
+
+  - `stack build --fast && stack exec -- {{name}}`
+  - `stack test`
+  - `stack haddock`
+  - debug and get documentation with file watch
+    `stack build --fast --haddock-deps --file-watch`
+
+## Formatters config
+
+My favorite formatter is `Stylish Haskell`.
+See how to configure Haskell formatters https://mmhaskell.com/blog/2018/8/6/keeping-it-clean-haskell-code-formatters
+
+- Install with stylish-haskell
+
+  `stack install stylish-haskell`
+
+- Make the stylish-haskell the default formatter in your editor of choice (mine is vs code)
+
+- generate the default format configuration
+
+  `stylish-haskell --defaults > .stylish-haskell.yaml`
+
+{-# START_FILE doc/road_to_production.md #-}
+# Haskell road to PRODUCTION
+
+- [ ] Setup (visual studio code):
+  - [ ] [Stack](https://docs.haskellstack.org/en/stable/README/)
+  - [ ] Proxy
+  - [ ] Private Repo (Artifactory)
+- [ ] Logging
+- [ ] Data Modeling with Haskell. Data structures
+  - https://haskell-at-work.com/episodes/2018-01-19-domain-modelling-with-haskell-data-structures.html
+- [ ] Testing
+  - [ ] [QuickCheck](https://hackage.haskell.org/package/QuickCheck)
+- [ ] Work with (large) Files
+- [ ] RESTful API
+  - [ ] Yesod: [here](https://hackage.haskell.org/package/yesod) and [here](https://www.yesodweb.com)
+  - [ ] [Servant] (https://docs.servant.dev/en/stable/tutorial/ApiType.html)
+  - [ ] [Scotty] (https://hackage.haskell.org/package/scotty)
+- [ ] HTTP client
+  - [ ] [Simple http-client](https://github.com/snoyberg/http-client/blob/master/TUTORIAL.md)
+  - [ ] [http-tls client](<[http-client-tls](https://www.stackage.org/package/http-client-tls)>)
+- [ ] CLI
+  - [ ] [optparse-applicative](https://hackage.haskell.org/package/optparse-applicative)
+- [ ] work with JSON
+  - [ ] [Aeson](https://www.stackage.org/lts-16.22/package/aeson-1.4.7.1)
+- [ ] Web Application
+  - [ ] [yesodweb](https://www.yesodweb.com/book/widgets)
+- [ ] Persistence
+  - [ ] [esqueleto](https://hackage.haskell.org/package/esqueleto)
+- [ ] Common Effects
+  - [ ] Random
+  - [ ] UUID
+  - [ ] Scheduler
+- [ ] DSL
+  - [ ] [Polysemy](polysemy is a library for writing high-power, low-boilerplate domain specific languages). More about polysemy
+    - [here](https://haskell-explained.gitlab.io/blog/posts/2019/07/28/polysemy-is-cool-part-1/index.html)
+    - [here](https://youtu.be/idU7GdlfP9Q?t=1394)
+
+## Low priority
+
+- [ ] Developer experience
+  - [ ] vs code setup
+  - [ ] Debugging (vs code)
+- [ ] work with MySQL
+- [ ] work with XML
+- [ ] work with NoSQL
+- [ ] pipeline (Microsoft Azure DevOps, Gitlab actions)
+- [ ] Performance
+- [ ] Reactive Programming ([Reflex](https://hackage.haskell.org/package/reflex))
+- [ ] Data Streaming ([conduit](https://github.com/snoyberg/conduit#readme))
+- [ ] Versioning
+  - [ ] Different project with different toolchain versions (stack, cabal, ghc, ghci, ghcid)
+- [ ] Accessing remote data concurrently
+  - [ ] [Haxl](http://hackage.haskell.org/package/haxl)
+
+## Releasing internal/external resources
+- [ ] [bracket](https://wiki.haskell.org/Bracket_pattern)
+
+## Exception handling
+  - [try](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Exception.html#v:try)
+  - [catch](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Exception.html#g:5)
+  - [throw](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Exception.html#g:2)
+
+## Popular effects
+
+- [ ] logging
+- [ ] random numbers
+  - import System.Random -> [link](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/using-warnings.html)
+- [ ] UUID
+- [ ] read/write to file
+- [ ] read/write to console
+- [ ] current date/time
+- [ ] metrics
+- [ ] tracing
+
+## Data Structures
+
+
