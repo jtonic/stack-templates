@@ -230,16 +230,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | cmd shift N | New window                    |       |
 | cmd shift W | Close window                  |       |
 | cmd K cmd W | close all editors             |       |
-|             |                               |       |
-|             |                               |       |
 
 ## Editor basics
 
 | shortcut    | Description     | Notes |
 | ----------- | --------------- | ----- |
+| cmd k cmd i | show hover      |       |
 | cmd shift k | delete line     |       |
 | alt shift F | Format document |       |
-|             |                 |       |
 
 ## Editor IDE
 
@@ -251,7 +249,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | cmd shift o  | Go to symbol                          |       |
 | ctrl shift r | Refactoring                           |       |
 | cmd I        | Trigger suggest                       |       |
-|              |                                       |       |
 
 ## Run debug
 
@@ -260,7 +257,50 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | F8       | Run tests     |       |
 | F6       | Run a task... |       |
 
+## Navigation
+
+| Shortcut      | Description         | Notes |
+| ------------- | ------------------- | ----- |
+| ctrl -        | Back                |       |
+| F12           | Go to definition    |       |
+| Alt F12       | Pick definition     |       |
+| Alt Shift F12 | Find all references |       |
+| Ctrl G        | Go to line          |       |
+
+## Activity bar
+
+| Shortcut     | Description         | Notes |
+| ------------ | ------------------- | ----- |
+| Cmd Shift E  | Open Explored       |       |
+| Ctrl Shift G | Open Source Control |       |
+| Cmd Shift M  | Open Problems       |       |
+
 {-# START_FILE doc/haskell_common_commands.md #-}
+
+# Haskell common commands
+
+## Stack commands
+
+  - `stack build --fast && stack exec -- {{name}}`
+  - `stack test`
+  - `stack haddock`
+  - debug and get documentation with file watch
+    `stack build --fast --haddock-deps --file-watch`
+
+## Formatters config
+
+My favorite formatter is `Stylish Haskell`.
+See how to configure Haskell formatters https://mmhaskell.com/blog/2018/8/6/keeping-it-clean-haskell-code-formatters
+
+- Install with stylish-haskell
+
+  `stack install stylish-haskell`
+
+- Make the stylish-haskell the default formatter in your editor of choice (mine is vs code)
+
+- generate the default format configuration
+
+  `stylish-haskell --defaults > .stylish-haskell.yaml`
 
 
 {-# START_FILE doc/road_to_production.md #-}
