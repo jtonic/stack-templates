@@ -4,6 +4,7 @@
 - [simple](./simple.hsfiles)
 - [relude](./relude.hsfiles)
 - [simple-yesod](./simple-yesod.hsfiles)
+- [simple-aeson](./simple-aeson.hsfiles)
 
 ### Requirements
 
