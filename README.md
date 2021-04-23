@@ -2,6 +2,7 @@
 
 ### Templates list
 - [simple](./simple.hsfiles)
+- [simple-multi-exec](./simple-multi-exec.hsfiles)
 - [relude](./relude.hsfiles)
 - [simple-yesod](./simple-yesod.hsfiles)
 - [simple-aeson](./simple-aeson.hsfiles)
